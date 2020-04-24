@@ -17,12 +17,17 @@ const (
 // Namespaces
 
 type Ping struct {
-	XMLName xml.Name `xml:"urn:xmpp:ping ping"`
+	XMLName   xml.Name   `xml:"urn:xmpp:ping ping"`
+	ResultSet *ResultSet `xml:"set,omitempty"`
 }
 
 // Namespace lets Ping implement the IQPayload interface
 func (p *Ping) Namespace() string {
 	return p.XMLName.Space
+}
+
+func (p *Ping) GetSet() *ResultSet {
+	return p.ResultSet
 }
 
 // ---------------
