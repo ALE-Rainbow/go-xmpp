@@ -49,5 +49,5 @@ func (iq *IQ) Ping() *Ping {
 // Registry init
 
 func init() {
-	stanza.TypeRegistry.MapExtension(stanza.PKTIQ, xml.Name{Space: NSPing, Local: "ping"}, Ping{})
+	TypeRegistry.MapExtension(PKTIQ, xml.Name{Space: NSPing, Local: "ping"}, Ping{})
 }
