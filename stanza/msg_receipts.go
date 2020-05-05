@@ -25,7 +25,14 @@ type ReceiptReceived struct {
 	Event   string   `xml:"event,attr,omitempty"`
 }
 
+type ReceiptTimestamp struct {
+	MsgExtension
+	XMLName xml.Name `xml:"urn:xmpp:receipts timestamp"`
+	Value   string   `xml:"value,attr"`
+}
+
 func init() {
 	TypeRegistry.MapExtension(PKTMessage, xml.Name{Space: NSMsgReceipts, Local: "request"}, ReceiptRequest{})
 	TypeRegistry.MapExtension(PKTMessage, xml.Name{Space: NSMsgReceipts, Local: "received"}, ReceiptReceived{})
+	TypeRegistry.MapExtension(PKTMessage, xml.Name{Space: NSMsgReceipts, Local: "timestamp"}, ReceiptTimestamp{})
 }
