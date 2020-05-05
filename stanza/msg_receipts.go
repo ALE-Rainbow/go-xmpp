@@ -21,6 +21,8 @@ type ReceiptReceived struct {
 	MsgExtension
 	XMLName xml.Name `xml:"urn:xmpp:receipts received"`
 	ID      string   `xml:"id,attr"`
+	Entity  string   `xml:"entity,attr,omitempty"`
+	Event   string   `xml:"event,attr,omitempty"`
 }
 
 func init() {
