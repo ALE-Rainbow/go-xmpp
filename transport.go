@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 )
 
@@ -17,6 +18,7 @@ type TransportConfiguration struct {
 	// Address is the XMPP Host and port to connect to. Host is of
 	// the form 'serverhost:port' i.e "localhost:8888"
 	Address        string
+	Resolver       *net.Resolver
 	Domain         string
 	ConnectTimeout int // Client timeout in seconds. Default to 15
 	// tls.Config must not be modified after having been passed to NewClient. Any

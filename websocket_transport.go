@@ -3,10 +3,14 @@ package xmpp
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -32,6 +36,46 @@ type WebsocketTransport struct {
 	closeFunc context.CancelFunc
 }
 
+func dialContext(r *net.Resolver) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, _, addr string) (net.Conn, error) {
+		return (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: false,
+			Resolver:  r,
+		}).DialContext(ctx, "tcp4", addr)
+	}
+}
+
+func newHTTPClient(cfg TransportConfiguration) *http.Client {
+	tr := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 5 * time.Second,
+		DialContext:           dialContext(cfg.Resolver),
+	}
+
+	var host string
+	u, err := url.Parse(cfg.Address)
+	if err != nil {
+		host = cfg.Address
+	} else {
+		host = u.Host
+	}
+
+	tr.TLSClientConfig = &tls.Config{
+		ServerName:         host,
+		InsecureSkipVerify: false,
+		Certificates:       nil,
+	}
+
+	return &http.Client{
+		Transport: tr,
+	}
+}
+
 func (t *WebsocketTransport) Connect() (string, error) {
 	t.queue = make(chan []byte, 256)
 	t.closeCtx, t.closeFunc = context.WithCancel(context.Background())
@@ -46,6 +90,7 @@ func (t *WebsocketTransport) Connect() (string, error) {
 
 	wsConn, response, err := websocket.Dial(ctx, t.Config.Address, &websocket.DialOptions{
 		Subprotocols: []string{"xmpp"},
+		HTTPClient:   newHTTPClient(t.Config),
 	})
 
 	if err != nil {
