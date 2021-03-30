@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"gosrc.io/xmpp/stanza"
@@ -31,6 +32,7 @@ type WebsocketTransport struct {
 	wsConn  *websocket.Conn
 	queue   chan []byte
 	logFile io.Writer
+	readerWg sync.WaitGroup
 
 	closeCtx  context.Context
 	closeFunc context.CancelFunc
@@ -128,8 +130,10 @@ func (t WebsocketTransport) StartStream() (string, error) {
 // startReader runs a go function that keeps reading from the websocket. This
 // is required to allow Ping() to work: Ping requires a Reader to be running
 // to process incoming control frames.
-func (t WebsocketTransport) startReader() {
+func (t *WebsocketTransport) startReader() {
+	t.readerWg.Add(1)
 	go func() {
+		defer t.readerWg.Done()
 		buffer := make([]byte, maxPacketSize)
 		for {
 			_, reader, err := t.wsConn.Reader(t.closeCtx)
@@ -197,7 +201,7 @@ func (t WebsocketTransport) Write(p []byte) (int, error) {
 	return len(p), t.wsConn.Write(t.closeCtx, websocket.MessageText, p)
 }
 
-func (t WebsocketTransport) Close() error {
+func (t *WebsocketTransport) Close() error {
 	t.Write([]byte("<close xmlns=\"urn:ietf:params:xml:ns:xmpp-framing\" />"))
 	return t.cleanup(websocket.StatusGoingAway)
 }
@@ -208,19 +212,20 @@ func (t *WebsocketTransport) LogTraffic(logFile io.Writer) {
 
 func (t *WebsocketTransport) cleanup(code websocket.StatusCode) error {
 	var err error
-	if t.queue != nil {
-		close(t.queue)
-		t.queue = nil
+	if t.closeFunc != nil {
+		t.closeFunc()
 	}
+	t.readerWg.Wait()
 	if t.wsConn != nil {
 		err = t.wsConn.Close(websocket.StatusGoingAway, "Done")
 		t.wsConn = nil
 	}
-	if t.closeFunc != nil {
-		t.closeFunc()
-		t.closeFunc = nil
-		t.closeCtx = nil
+	if t.queue != nil {
+		close(t.queue)
+		t.queue = nil
 	}
+	t.closeFunc = nil
+	t.closeCtx = nil
 	return err
 }
 
